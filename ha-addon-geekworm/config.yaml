@@ -1,6 +1,6 @@
 name: "Geekworm UPS HAT Daemon"
 description: "Reads battery voltage, capacity and AC status from a Geekworm UPS HAT (X728, X1200) and exposes them via a local REST API for the Geekworm UPS HAT integration."
-version: "1.0.4"
+version: "1.1.0"
 slug: "geekworm-daemon"
 init: false
 arch:
