@@ -1,0 +1,14 @@
+{
+  "domain": "geekworm_ups",
+  "name": "Geekworm UPS HAT (X728 / X1200)",
+  "codeowners": [
+    "@fir006c"
+  ],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/fir006c/geekworm-ups-hat",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/fir006c/geekworm-ups-hat/issues",
+  "requirements": [],
+  "version": "1.0.4"
+}

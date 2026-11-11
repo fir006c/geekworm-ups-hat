@@ -1,21 +1,29 @@
 #!/usr/bin/env python3
 """
-X728 UPS Daemon for Home Assistant OS Add-on.
+Geekworm UPS HAT Daemon for Home Assistant OS Add-on.
 
-Reads battery voltage/capacity via I2C (MAX17040 @ 0x36),
-AC power loss via GPIO6 (PLD pin), and exposes a REST API
-on http://0.0.0.0:<PORT>/api/x728
+Supported boards (selected with the UPS_HAT_BOARD environment variable):
+  x728  - Geekworm X728 (v1.x .. v2.5)
+  x1200 - Geekworm / Suptronics X1200 (Raspberry Pi 5 only)
 
-Also handles safe shutdown when battery falls below the
-configured threshold voltage or capacity.
+Both boards read battery voltage/capacity via I2C (MAX17040 @ 0x36) and
+AC power loss via GPIO6 (PLD pin). The daemon exposes a REST API on
+http://0.0.0.0:<PORT>/api/ups and handles safe shutdown when the battery
+falls below the configured threshold voltage or capacity.
 
 Hardware GPIO map:
-  GPIO6  -> PLD  (Power Loss Detection, LOW=AC OK, HIGH=AC Lost)
-  GPIO20 -> Buzzer
-  GPIO26 -> Software shutdown trigger (v2.1+)
-  GPIO13 -> Software shutdown trigger (v1.x / v2.0)
-  GPIO5  -> Hardware shutdown signal (input)
-  GPIO12 -> BOOT signal (output, kept HIGH while running)
+  X728:
+    GPIO6  -> PLD  (Power Loss Detection, LOW=AC OK, HIGH=AC Lost)
+    GPIO20 -> Buzzer
+    GPIO26 -> Software shutdown trigger (v2.1+)
+    GPIO13 -> Software shutdown trigger (v1.x / v2.0)
+    GPIO12 -> BOOT signal (output, kept HIGH while running)
+  X1200:
+    GPIO6  -> PLD  (Power Loss Detection, HIGH=AC OK, LOW=AC Lost)
+    (no buzzer, no BOOT, no shutdown pin: the Pi 5 cuts power on halt)
+
+To support another HAT, add a builder to BOARD_BUILDERS and the board
+name to the add-on config.yaml schema.
 """
 
 import json
@@ -26,12 +34,14 @@ import subprocess
 import time
 import threading
 import pwd
+from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 # ---------------------------------------------------------------------------
 # Read configuration from environment variables (set by the add-on config)
 # ---------------------------------------------------------------------------
-HW_VERSION = os.environ.get("HW_VERSION", "v2.1")   # supported values: v1, v2.0, v2.1+
+BOARD = os.environ.get("UPS_HAT_BOARD", "x728")      # supported values: x728, x1200
+HW_VERSION = os.environ.get("HW_VERSION", "v2.1")   # X728 only: v1, v2.0, v2.1+
 PORT = int(os.environ.get("DAEMON_PORT", "8099"))
 POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "10"))   # seconds
 
@@ -46,9 +56,38 @@ GPIO_CHIP = os.environ.get("GPIO_CHIP", "autodetect")
 
 CHIP_FALLBACK = "/dev/gpiochip0"  # used if autodetect fails
 
+API_PATH = "/api/ups"
+
+# MAX17040 fuel gauge, shared by all supported boards
+I2C_ADDR = 0x36
+I2C_BUS = 1
+
+# ---------------------------------------------------------------------------
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [geekworm-daemon] %(levelname)s: %(message)s",
+)
+log = logging.getLogger("geekworm-daemon")
+
+
+# ---------------------------------------------------------------------------
+# Board profiles
+# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class BoardProfile:
+    """GPIO layout of a UPS HAT. A pin set to None is not present."""
+
+    board: str                  # board id, e.g. "x728"
+    label: str                  # human readable model, e.g. "X728 v2.1+"
+    pld_pin: int                # Power Loss Detection input
+    pld_ac_ok_level: int        # PLD level (0/1) that means "AC present"
+    buzzer_pin: int | None = None
+    boot_pin: int | None = None
+    shutdown_pin: int | None = None
+
 
 def normalize_hw_version(hw_version: str) -> str:
-    """Normalize hardware version strings to the groups we actually support."""
+    """Normalize X728 hardware version strings to the groups we actually support."""
     value = (hw_version or "").strip().lower().replace(" ", "")
     aliases = {
         "v1": "v1",
@@ -60,46 +99,55 @@ def normalize_hw_version(hw_version: str) -> str:
     }
     if value in aliases:
         return aliases[value]
-    if value.startswith("v2.") and value[3:]:
-        try:
-            int(value[3:].replace(".", ""))
-        except ValueError:
-            pass
-        else:
-            return "v2.1+"
     return "v2.1+"
 
 
-# GPIO pin selection based on the supported hardware families
-HW_VERSION_NORMALIZED = normalize_hw_version(HW_VERSION)
-if HW_VERSION_NORMALIZED == "v1":
-    GPIO_SHUTDOWN = 13
-    HW_LABEL = "X728 v1"
-elif HW_VERSION_NORMALIZED == "v2.0":
-    GPIO_SHUTDOWN = 13
-    HW_LABEL = "X728 v2.0"
-else:
-    GPIO_SHUTDOWN = 26
-    HW_LABEL = "X728 v2.1+"
+def _build_x728(hw_version: str) -> BoardProfile:
+    """X728: PLD HIGH = AC lost, shutdown pin depends on the revision."""
+    group = normalize_hw_version(hw_version)
+    if group == "v1":
+        shutdown_pin, label = 13, "X728 v1"
+    elif group == "v2.0":
+        shutdown_pin, label = 13, "X728 v2.0"
+    else:
+        shutdown_pin, label = 26, "X728 v2.1+"
+    return BoardProfile(
+        board="x728",
+        label=label,
+        pld_pin=6,
+        pld_ac_ok_level=0,
+        buzzer_pin=20,
+        boot_pin=12,
+        shutdown_pin=shutdown_pin,
+    )
 
-GPIO_PLD = 6
-GPIO_BUZZER = 20
-GPIO_BOOT = 12
 
-I2C_ADDR = 0x36
-I2C_BUS = 1
+def _build_x1200(_hw_version: str) -> BoardProfile:
+    """X1200: PLD HIGH = AC OK, no buzzer / boot / shutdown pins."""
+    return BoardProfile(board="x1200", label="X1200", pld_pin=6, pld_ac_ok_level=1)
 
-# ---------------------------------------------------------------------------
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [x728-daemon] %(levelname)s: %(message)s",
-)
-log = logging.getLogger("x728")
+
+BOARD_BUILDERS = {
+    "x728": _build_x728,
+    "x1200": _build_x1200,
+}
+
+
+def build_profile(board: str, hw_version: str) -> BoardProfile:
+    """Return the profile for the given board, falling back to the X728."""
+    key = (board or "").strip().lower()
+    builder = BOARD_BUILDERS.get(key)
+    if builder is None:
+        log.warning("Unknown board '%s', falling back to x728", board)
+        builder = _build_x728
+    return builder(hw_version)
+
+
+PROFILE = build_profile(BOARD, HW_VERSION)
 
 # ---------------------------------------------------------------------------
 # Global Hardware State & Graceful Imports
 # ---------------------------------------------------------------------------
-gpio_lines = {}  # unused with gpiod v2
 GPIO_AVAILABLE = False  # pylint: disable=invalid-name
 I2C_AVAILABLE = False  # pylint: disable=invalid-name
 
@@ -125,7 +173,8 @@ current_state: dict = {
     "ac_present": None,
     "battery_low": False,
     "charging": False,
-    "hw_version": HW_LABEL,
+    "board": PROFILE.board,
+    "hw_version": PROFILE.label,
     "shutdown_triggered": False,
     "error": None,
 }
@@ -174,34 +223,31 @@ def gpio_setup():
 
     chip_path = find_gpio_chip() if GPIO_CHIP == "autodetect" else GPIO_CHIP
 
-    # Build line configuration: INPUT for PLD, OUTPUT for the rest
+    # PLD is always an INPUT; optional output pins are added when the board has them
     line_config = {
-        GPIO_PLD: gpiod.LineSettings(
-            direction=gpiod.line.Direction.INPUT
-        ),
-        GPIO_BUZZER: gpiod.LineSettings(
-            direction=gpiod.line.Direction.OUTPUT,
-            output_value=gpiod.line.Value.INACTIVE,
-        ),
-        GPIO_BOOT: gpiod.LineSettings(
-            direction=gpiod.line.Direction.OUTPUT,
-            output_value=gpiod.line.Value.ACTIVE,    # HIGH = system is up
-        ),
-        GPIO_SHUTDOWN: gpiod.LineSettings(
-            direction=gpiod.line.Direction.OUTPUT,
-            output_value=gpiod.line.Value.INACTIVE,
-        ),
+        PROFILE.pld_pin: gpiod.LineSettings(direction=gpiod.line.Direction.INPUT),
     }
+    outputs = (
+        (PROFILE.buzzer_pin, gpiod.line.Value.INACTIVE),
+        (PROFILE.boot_pin, gpiod.line.Value.ACTIVE),        # HIGH = system is up
+        (PROFILE.shutdown_pin, gpiod.line.Value.INACTIVE),
+    )
+    for pin, initial in outputs:
+        if pin is not None:
+            line_config[pin] = gpiod.LineSettings(
+                direction=gpiod.line.Direction.OUTPUT,
+                output_value=initial,
+            )
 
     _gpio_request = gpiod.request_lines(
         chip_path,
-        consumer="x728-daemon",
+        consumer="geekworm-daemon",
         config=line_config,
     )
 
     log.info(
-        "GPIO configured via gpiod v2 (%s). Shutdown pin: GPIO%d",
-        chip_path, GPIO_SHUTDOWN,
+        "GPIO configured via gpiod v2 (%s) for %s. Pins: %s",
+        chip_path, PROFILE.label, sorted(line_config),
     )
 
 
@@ -213,9 +259,9 @@ def gpio_read(pin: int) -> int:
     return 1 if val == gpiod.line.Value.ACTIVE else 0
 
 
-def gpio_write(pin: int, value: int) -> None:
-    """Write a value to a GPIO pin (1=high, 0=low)."""
-    if _gpio_request is None:
+def gpio_write(pin: int | None, value: int) -> None:
+    """Write a value to a GPIO pin (1=high, 0=low). No-op for a missing pin."""
+    if _gpio_request is None or pin is None:
         return
     gpio_val = gpiod.line.Value.ACTIVE if value else gpiod.line.Value.INACTIVE
     _gpio_request.set_value(pin, gpio_val)
@@ -236,30 +282,30 @@ def read_capacity(bus) -> int:
 
 
 def do_shutdown():
-    """Perform a graceful HA shutdown then cut UPS power."""
+    """Perform a graceful HA shutdown then cut UPS HAT power."""
     log.warning("SHUTDOWN SEQUENCE STARTED")
     # 1. Ask HA OS to shut down gracefully
     try:
         subprocess.run(["ha", "os", "shutdown"], timeout=30, check=False)
     except Exception as e:  # pylint: disable=broad-except
         log.error("Failed to call 'ha os shutdown': %s", e)
-    # 2. Wait for OS to settle, then pulse the UPS shutdown pin
+    # 2. Wait for OS to settle, then pulse the UPS HAT shutdown pin (if the board has one;
+    #    boards without it, like the X1200, cut power when the Pi halts)
     time.sleep(SHUTDOWN_DELAY)
-    # ac_present
-    if GPIO_AVAILABLE and _gpio_request is not None:
-        gpio_write(GPIO_SHUTDOWN, 1)
+    if GPIO_AVAILABLE and _gpio_request is not None and PROFILE.shutdown_pin is not None:
+        gpio_write(PROFILE.shutdown_pin, 1)
         time.sleep(3)
-        gpio_write(GPIO_SHUTDOWN, 0)
+        gpio_write(PROFILE.shutdown_pin, 0)
 
 
 def buzzer_beep(count: int = 1, on_ms: int = 100, off_ms: int = 100):
     """Sound the buzzer for the given number of pulses."""
-    if not GPIO_AVAILABLE:
+    if not GPIO_AVAILABLE or PROFILE.buzzer_pin is None:
         return
     for _ in range(count):
-        gpio_write(GPIO_BUZZER, 1)
+        gpio_write(PROFILE.buzzer_pin, 1)
         time.sleep(on_ms / 1000)
-        gpio_write(GPIO_BUZZER, 0)
+        gpio_write(PROFILE.buzzer_pin, 0)
         time.sleep(off_ms / 1000)
 
 
@@ -289,7 +335,7 @@ def monitor_loop():
             voltage = read_voltage(bus) if bus else None
             capacity = read_capacity(bus) if bus else None
             ac_present = (
-                not bool(gpio_read(GPIO_PLD))
+                gpio_read(PROFILE.pld_pin) == PROFILE.pld_ac_ok_level
                 if GPIO_AVAILABLE and _gpio_request is not None
                 else None
             )
@@ -316,6 +362,7 @@ def monitor_loop():
 
             # --- AC loss buzzer ---
             if GPIO_AVAILABLE and _gpio_request is not None \
+                    and PROFILE.buzzer_pin is not None \
                     and BUZZER_ON_AC_LOSS and ac_present is False:
                 buzzer_beep(count=1, on_ms=100, off_ms=100)
 
@@ -343,15 +390,15 @@ def monitor_loop():
 # HTTP REST API
 # ---------------------------------------------------------------------------
 
-class X728Handler(BaseHTTPRequestHandler):
-    """Minimal HTTP handler exposing /api/x728."""
+class UpsHandler(BaseHTTPRequestHandler):
+    """Minimal HTTP handler exposing the UPS HAT state on API_PATH."""
 
     def log_message(self, fmt, *args):  # pylint: disable=arguments-differ
         pass  # suppress per-request access log noise
 
     def do_GET(self):   # pylint: disable=invalid-name
         """Handle GET requests."""
-        if self.path == "/api/x728":
+        if self.path == API_PATH:
             with state_lock:
                 payload = json.dumps(current_state).encode()
             self.send_response(200)
@@ -374,18 +421,21 @@ class X728Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    log.info("Starting X728 daemon | hw=%s | port=%d | poll=%ds", HW_LABEL, PORT, POLL_INTERVAL)
+    log.info(
+        "Starting Geekworm UPS HAT daemon | board=%s | hw=%s | port=%d | poll=%ds",
+        PROFILE.board, PROFILE.label, PORT, POLL_INTERVAL,
+    )
     log.info(
         "Shutdown thresholds: voltage<%.2fV OR capacity<%d%% (delay %ds)",
         SHUTDOWN_VOLTAGE, SHUTDOWN_CAPACITY, SHUTDOWN_DELAY,
     )
     log.info("Script executed by: %s (UID: %d)", pwd.getpwuid(os.getuid()).pw_name, os.getuid())
 
-    monitor = threading.Thread(target=monitor_loop, daemon=True, name="x728-monitor")
+    monitor = threading.Thread(target=monitor_loop, daemon=True, name="ups-monitor")
     monitor.start()
 
-    server = HTTPServer(("0.0.0.0", PORT), X728Handler)
-    log.info("REST API listening on http://0.0.0.0:%d/api/x728", PORT)
+    server = HTTPServer(("0.0.0.0", PORT), UpsHandler)
+    log.info("REST API listening on http://0.0.0.0:%d%s", PORT, API_PATH)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

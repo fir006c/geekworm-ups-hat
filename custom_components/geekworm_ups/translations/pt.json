@@ -1,0 +1,34 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configuração do Geekworm UPS HAT (X728, X1200)",
+        "description": "Ligar ao add-on daemon do Geekworm UPS HAT em execução neste dispositivo.",
+        "data": {
+          "host": "Host do daemon",
+          "port": "Porta do daemon",
+          "scan_interval": "Intervalo de consulta (segundos)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Não foi possível ligar ao daemon do UPS HAT. Verifique se o add-on Geekworm UPS HAT está em execução.",
+      "unknown": "Erro inesperado. Verifique os registos."
+    },
+    "abort": {
+      "already_configured": "Esta instância do UPS HAT já está configurada."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opções do Geekworm UPS HAT",
+        "data": {
+          "host": "Host do daemon",
+          "port": "Porta do daemon",
+          "scan_interval": "Intervalo de consulta (segundos)"
+        }
+      }
+    }
+  }
+}

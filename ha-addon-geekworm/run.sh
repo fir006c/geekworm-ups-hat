@@ -2,8 +2,9 @@
 # Read options from the HA add-on configuration and pass them
 # to the Python daemon as environment variables.
 
-bashio::log.info "Starting X728 UPS Daemon..."
+bashio::log.info "Starting Geekworm UPS HAT Daemon..."
 
+export UPS_HAT_BOARD=$(bashio::config 'board')
 export HW_VERSION=$(bashio::config 'hw_version')
 export DAEMON_PORT=$(bashio::config 'daemon_port')
 export POLL_INTERVAL=$(bashio::config 'poll_interval')
@@ -30,6 +31,7 @@ bashio::log.info "--- end GPIO info ---"
 
 
 bashio::log.info "--- Environment Variables ---"
+bashio::log.info "board:             ${UPS_HAT_BOARD}"
 bashio::log.info "hw_version:        ${HW_VERSION}"
 bashio::log.info "daemon_port:       ${DAEMON_PORT}"
 bashio::log.info "poll_interval:     ${POLL_INTERVAL}s"
@@ -42,4 +44,4 @@ bashio::log.info "--- end Environment Variables ---"
 
 
 
-exec python3 /app/x728_daemon.py
+exec python3 /app/geekworm_daemon.py

@@ -1,6 +1,7 @@
 {
-  "name": "Geekworm X728 UPS",
+  "name": "Geekworm UPS HAT",
   "content_in_root": false,
   "render_readme": true,
-  "filename": "x728.zip"
+  "zip_release": true,
+  "filename": "geekworm_ups.zip"
 }

@@ -8,19 +8,19 @@ export SHUTDOWN_CAPACITY="0"
 export SHUTDOWN_DELAY="10"
 export BUZZER_ON_AC_LOSS="false"
 
-# Find the workspace directory (fall-back on /workspaces/ha-x728 if empty)
-WORKSPACE_DIR="${CONTAINER_WORKSPACE_FOLDER:-/workspaces/ha-x728}"
+# Find the workspace directory (fall-back on /workspaces/geekworm-ups-hat if empty)
+WORKSPACE_DIR="${CONTAINER_WORKSPACE_FOLDER:-/workspaces/geekworm-ups-hat}"
 
 echo "Using workspace directory: $WORKSPACE_DIR"
 
-echo "Starting X728 daemon in simulation mode..."
+echo "Starting Geekworm UPS HAT daemon in simulation mode..."
 
-APP_DIR="$WORKSPACE_DIR/ha-addon-x728"
+APP_DIR="$WORKSPACE_DIR/ha-addon-geekworm"
 
-if [ -f "$APP_DIR/x728_daemon.py" ]; then
-    python3 "$APP_DIR/x728_daemon.py" &
-    echo "X728 daemon started with PID $!"
+if [ -f "$APP_DIR/geekworm_daemon.py" ]; then
+    python3 "$APP_DIR/geekworm_daemon.py" &
+    echo "Geekworm UPS HAT daemon started with PID $!"
 else
-    echo "ERROR: x728_daemon.py not found in $APP_DIR"
+    echo "ERROR: geekworm_daemon.py not found in $APP_DIR"
     exit 1
 fi

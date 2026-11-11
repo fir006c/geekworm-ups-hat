@@ -1,6 +1,10 @@
-"""Constants for the Geekworm X728 UPS integration."""
+"""Constants for the Geekworm UPS HAT integration (X728, X1200)."""
 
-DOMAIN = "x728"
+DOMAIN = "geekworm_ups"
+MANUFACTURER = "Geekworm"
+
+# REST endpoint exposed by the Geekworm UPS HAT add-on daemon
+API_PATH = "/api/ups"
 
 # Config keys
 CONF_HOST = "host"
@@ -19,3 +23,4 @@ KEY_AC_PRESENT = "ac_present"
 KEY_BATTERY_LOW = "battery_low"
 KEY_CHARGING = "charging"
 KEY_HW_VERSION = "hw_version"
+KEY_BOARD = "board"
