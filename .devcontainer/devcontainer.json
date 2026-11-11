@@ -1,5 +1,5 @@
 {
-	"name": "HA x728 Dev Container",
+	"name": "HA Geekworm UPS HAT Dev Container",
 	"dockerFile": "Dockerfile",
 	"context": "..",
 	"appPort": [

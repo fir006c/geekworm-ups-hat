@@ -13,7 +13,7 @@ RUN apk add --no-cache \
 RUN pip3 install --no-cache-dir smbus2 gpiod
 
 WORKDIR /app
-COPY x728_daemon.py .
+COPY geekworm_daemon.py .
 COPY run.sh /run.sh
 RUN chmod +x /run.sh
 

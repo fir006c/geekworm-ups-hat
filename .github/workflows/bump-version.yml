@@ -2,10 +2,11 @@ name: Bump Version Files
 
 # Runs when a tag vX.Y.Z is pushed.
 # This workflow:
-#   1. Bumps version in ha-addon-x728/config.yaml and custom_components/x728/manifest.json
+#   1. Bumps version in ha-addon-geekworm/config.yaml and custom_components/geekworm_ups/manifest.json
 #   2. Commits the changes
 #   3. Moves the tag to point to the new commit
-#   4. Creates a GitHub Release with changelog
+#   4. Builds geekworm_ups.zip (integration for HACS)
+#   5. Creates a GitHub Release with changelog and the zip attached
 
 on:
   push:
@@ -38,12 +39,12 @@ jobs:
         id: ver
         run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
 
-      - name: Bump ha-addon-x728/config.yaml
+      - name: Bump ha-addon-geekworm/config.yaml
         run: |
           python3 - <<'EOF'
           import yaml, sys, re
 
-          path = "ha-addon-x728/config.yaml"
+          path = "ha-addon-geekworm/config.yaml"
           version = "${{ steps.ver.outputs.version }}"
 
           with open(path) as f:
@@ -67,12 +68,12 @@ jobs:
           print(f"config.yaml: {old_version or '?'} → {version}")
           EOF
 
-      - name: Bump custom_components/x728/manifest.json
+      - name: Bump custom_components/geekworm_ups/manifest.json
         run: |
           python3 - <<'EOF'
           import json
 
-          path = "custom_components/x728/manifest.json"
+          path = "custom_components/geekworm_ups/manifest.json"
           version = "${{ steps.ver.outputs.version }}"
 
           with open(path) as f:
@@ -95,7 +96,7 @@ jobs:
 
       - name: Commit version bump
         run: |
-          git add ha-addon-x728/config.yaml custom_components/x728/manifest.json
+          git add ha-addon-geekworm/config.yaml custom_components/geekworm_ups/manifest.json
           git commit -m "chore: bump version to ${{ github.ref_name }}"
 
       - name: Delete local tag and move it to new commit
@@ -121,6 +122,14 @@ jobs:
           echo "$LOG"     >> $GITHUB_OUTPUT
           echo "EOF"      >> $GITHUB_OUTPUT
 
+      - name: Build HACS zip
+        # HACS (zip_release) expects the integration files at the root of the zip
+        run: |
+          cd custom_components/geekworm_ups
+          zip -r "${GITHUB_WORKSPACE}/geekworm_ups.zip" . -x "*__pycache__*" "*.pyc"
+          cd "${GITHUB_WORKSPACE}"
+          unzip -l geekworm_ups.zip
+
       - name: Create Release
         uses: softprops/action-gh-release@v3
         with:
@@ -132,6 +141,7 @@ jobs:
 
             ## Installation
             Install or update via [HACS](https://hacs.xyz), oppure copia manualmente
-            la cartella `custom_components/x728` nella tua installazione Home Assistant.
+            la cartella `custom_components/geekworm_ups` nella tua installazione Home Assistant.
+          files: geekworm_ups.zip
           draft: false
           prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}

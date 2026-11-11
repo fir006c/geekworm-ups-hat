@@ -1,4 +1,4 @@
-"""Binary sensor platform for Geekworm X728 UPS."""
+"""Binary sensor platform for Geekworm UPS HATs."""
 from __future__ import annotations
 
 from homeassistant.components.binary_sensor import (
@@ -10,13 +10,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from . import X728DataCoordinator
+from . import UpsDataCoordinator, device_info
 from .const import (
     DOMAIN,
     KEY_AC_PRESENT,
     KEY_BATTERY_LOW,
     KEY_CHARGING,
-    KEY_HW_VERSION,
 )
 
 
@@ -25,23 +24,26 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up X728 binary sensors."""
-    coordinator: X728DataCoordinator = hass.data[DOMAIN][entry.entry_id]
+    """Set up UPS HAT binary sensors."""
+    coordinator: UpsDataCoordinator = hass.data[DOMAIN][entry.entry_id]
     async_add_entities(
         [
-            X728AcPresentSensor(coordinator, entry),
-            X728BatteryLowSensor(coordinator, entry),
-            X728ChargingSensor(coordinator, entry),
+            UpsAcPresentSensor(coordinator, entry),
+            UpsBatteryLowSensor(coordinator, entry),
+            UpsChargingSensor(coordinator, entry),
         ]
     )
 
 
-class X728BaseBinarySensor(CoordinatorEntity, BinarySensorEntity):
+class UpsBaseBinarySensor(CoordinatorEntity, BinarySensorEntity):
     """Base binary sensor."""
 
+    _attr_has_entity_name = True
+
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
-        coordinator: X728DataCoordinator,
+        coordinator: UpsDataCoordinator,
         entry: ConfigEntry,
         key: str,
         name: str,
@@ -51,12 +53,7 @@ class X728BaseBinarySensor(CoordinatorEntity, BinarySensorEntity):
         self._key = key
         self._attr_name = name
         self._attr_unique_id = f"{entry.entry_id}_{unique_suffix}"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id)},
-            "name": "Geekworm X728 UPS",
-            "manufacturer": "Geekworm",
-            "model": coordinator.data.get(KEY_HW_VERSION, "X728"),
-        }
+        self._attr_device_info = device_info(coordinator, entry)
 
     @property
     def is_on(self) -> bool | None:
@@ -69,34 +66,34 @@ class X728BaseBinarySensor(CoordinatorEntity, BinarySensorEntity):
         )
 
 
-class X728AcPresentSensor(X728BaseBinarySensor):
+class UpsAcPresentSensor(UpsBaseBinarySensor):
     """AC power present sensor."""
 
     def __init__(self, coordinator, entry):
         super().__init__(
-            coordinator, entry, KEY_AC_PRESENT, "X728 AC Power", "ac_present"
+            coordinator, entry, KEY_AC_PRESENT, "AC Power", "ac_present"
         )
         self._attr_device_class = BinarySensorDeviceClass.PLUG
         self._attr_icon = "mdi:power-plug"
 
 
-class X728BatteryLowSensor(X728BaseBinarySensor):
+class UpsBatteryLowSensor(UpsBaseBinarySensor):
     """Battery low alert sensor."""
 
     def __init__(self, coordinator, entry):
         super().__init__(
-            coordinator, entry, KEY_BATTERY_LOW, "X728 Battery Low", "battery_low"
+            coordinator, entry, KEY_BATTERY_LOW, "Battery Low", "battery_low"
         )
         self._attr_device_class = BinarySensorDeviceClass.BATTERY
         self._attr_icon = "mdi:battery-alert"
 
 
-class X728ChargingSensor(X728BaseBinarySensor):
+class UpsChargingSensor(UpsBaseBinarySensor):
     """Battery charging sensor."""
 
     def __init__(self, coordinator, entry):
         super().__init__(
-            coordinator, entry, KEY_CHARGING, "X728 Charging", "charging"
+            coordinator, entry, KEY_CHARGING, "Charging", "charging"
         )
         self._attr_device_class = BinarySensorDeviceClass.BATTERY_CHARGING
         self._attr_icon = "mdi:battery-charging"

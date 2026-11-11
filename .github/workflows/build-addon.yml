@@ -9,7 +9,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/ha-addon-x728
+  IMAGE_NAME: ${{ github.repository_owner }}/ha-addon-geekworm
 
 jobs:
 
@@ -68,20 +68,20 @@ jobs:
       - name: Build and push image
         uses: docker/build-push-action@v7
         with:
-          context: ./ha-addon-x728
-          file: ./ha-addon-x728/Dockerfile
+          context: ./ha-addon-geekworm
+          file: ./ha-addon-geekworm/Dockerfile
           platforms: ${{ matrix.platform }}
           push: true
           build-args: |
             BUILD_FROM=${{ matrix.base_image }}
           tags: |
-            ghcr.io/${{ github.repository_owner }}/ha-addon-x728:${{ needs.resolve-tag.outputs.version }}-${{ matrix.arch }}
-            ghcr.io/${{ github.repository_owner }}/ha-addon-x728:latest-${{ matrix.arch }}
+            ghcr.io/${{ github.repository_owner }}/ha-addon-geekworm:${{ needs.resolve-tag.outputs.version }}-${{ matrix.arch }}
+            ghcr.io/${{ github.repository_owner }}/ha-addon-geekworm:latest-${{ matrix.arch }}
           cache-from: type=gha,scope=${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
           labels: |
-            org.opencontainers.image.title=Geekworm X728 UPS Daemon (${{ matrix.arch }})
-            org.opencontainers.image.description=HA add-on daemon for the Geekworm X728 UPS HAT
+            org.opencontainers.image.title=Geekworm UPS HAT Daemon (${{ matrix.arch }})
+            org.opencontainers.image.description=HA add-on daemon for Geekworm UPS HATs (X728, X1200)
             org.opencontainers.image.version=${{ needs.resolve-tag.outputs.version }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -104,13 +104,13 @@ jobs:
 
       - name: Create and push version manifest
         run: |
-          docker buildx imagetools create -t ghcr.io/${{ github.repository_owner }}/ha-addon-x728:${{ needs.resolve-tag.outputs.version }} \
-            ghcr.io/${{ github.repository_owner }}/ha-addon-x728:${{ needs.resolve-tag.outputs.version }}-aarch64
+          docker buildx imagetools create -t ghcr.io/${{ github.repository_owner }}/ha-addon-geekworm:${{ needs.resolve-tag.outputs.version }} \
+            ghcr.io/${{ github.repository_owner }}/ha-addon-geekworm:${{ needs.resolve-tag.outputs.version }}-aarch64
 
       - name: Create and push latest manifest
         run: |
-          docker buildx imagetools create -t ghcr.io/${{ github.repository_owner }}/ha-addon-x728:latest \
-            ghcr.io/${{ github.repository_owner }}/ha-addon-x728:latest-aarch64
+          docker buildx imagetools create -t ghcr.io/${{ github.repository_owner }}/ha-addon-geekworm:latest \
+            ghcr.io/${{ github.repository_owner }}/ha-addon-geekworm:latest-aarch64
 
   release:
     name: Create GitHub Release

@@ -2,8 +2,8 @@
   "config": {
     "step": {
       "user": {
-        "title": " Setup del UPS X728 Geekworm",
-        "description": "Connessione al demone add-on X728 in esecuzione sul dispositivo corrente.",
+        "title": "Setup del UPS HAT Geekworm (X728, X1200)",
+        "description": "Connessione al demone add-on Geekworm UPS HAT in esecuzione sul dispositivo corrente.",
         "data": {
           "host": "host Demone",
           "port": "porta Daemone",
@@ -12,17 +12,17 @@
       }
     },
     "error": {
-      "cannot_connect": "Impossibile connettersi al demone X728. Assicursi che l'add-on sia in esecuzione.",
+      "cannot_connect": "Impossibile connettersi al demone UPS HAT. Assicurarsi che l'add-on Geekworm UPS HAT sia in esecuzione.",
       "unknown": "Errore inatteso. Per maggiori informazioni controllare il log."
     },
     "abort": {
-      "already_configured": "Questa instanza X728 è già configurata."
+      "already_configured": "Questa istanza UPS HAT è già configurata."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Opzioni del UPS X728",
+        "title": "Opzioni del UPS HAT Geekworm",
         "data": {
           "host": "host Demone",
           "port": "porta Daemone",

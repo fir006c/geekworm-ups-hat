@@ -1,7 +1,7 @@
-name: "Geekworm X728 UPS Daemon"
-description: "Reads battery voltage, capacity and AC status from the Geekworm X728 UPS HAT and exposes them via a local REST API for the X728 integration."
+name: "Geekworm UPS HAT Daemon"
+description: "Reads battery voltage, capacity and AC status from a Geekworm UPS HAT (X728, X1200) and exposes them via a local REST API for the Geekworm UPS HAT integration."
 version: "1.0.4"
-slug: "x728-daemon"
+slug: "geekworm-daemon"
 init: false
 arch:
   - aarch64
@@ -21,11 +21,13 @@ devices:
 ports:
   8099/tcp: 8099
 ports_description:
-  8099/tcp: "X728 REST API"
+  8099/tcp: "UPS HAT REST API"
 
 # User-configurable options
-# Supported values: v1, v2.0, v2.1, v2.2, v2.3, v2.4, v2.5
+# board: x728 | x1200
+# hw_version and buzzer_on_ac_loss apply to the X728 only (ignored on the X1200)
 options:
+  board: "x728"
   hw_version: "v2.1"
   daemon_port: 8099
   poll_interval: 10
@@ -36,6 +38,7 @@ options:
   gpio_chip: "autodetect"
 
 schema:
+  board: list(x728|x1200)
   hw_version: list(v1.x/v2.0|v2.1|v2.2|v2.3|v2.4|v2.5)
   daemon_port: int(1024,65535)
   poll_interval: int(5,120)
@@ -45,4 +48,4 @@ schema:
   buzzer_on_ac_loss: bool
   gpio_chip: "list(autodetect|/dev/gpiochip0|/dev/gpiochip1|/dev/gpiochip2|/dev/gpiochip3|/dev/gpiochip4)"
 
-image: "ghcr.io/iu1jvo/ha-addon-x728"
+image: "ghcr.io/fir006c/ha-addon-geekworm"
