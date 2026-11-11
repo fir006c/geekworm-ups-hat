@@ -1,6 +1,6 @@
 # Change Log
 
-## [Unreleased]
+## [1.1.0] - 2026-11-11
 - Added support for the Geekworm / Suptronics X1200 UPS HAT (Raspberry Pi 5), selected with the new `board` app option.
 - Board specific GPIO layouts are now described by board profiles in the daemon, so more HATs can be added later.
 - **Breaking:** renamed the app slug to `geekworm-daemon` (folder `ha-addon-geekworm`, image `ha-addon-geekworm`),
@@ -10,6 +10,7 @@
 - Added integration translations: German, Spanish, French, Dutch, Polish, Portuguese and Russian.
 - Releases now include `geekworm_ups.zip` for the Home Assistant Marketplace and HACS (`zip_release` enabled in `hacs.json`).
 - README: install steps for the Marketplace (Home Assistant 2026.11+) and HACS (2026.10 and older).
+- Added Marketplace categories (Backup power, Boards & hardware) to the integration manifest.
 
 ## [1.0.4] - 2026-10-26
 - Fixed options-flow compatibility and updated connection checks to use Home Assistant's shared HTTP session and timeout handling.
