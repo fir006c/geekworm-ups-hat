@@ -1,6 +1,10 @@
 {
   "domain": "geekworm_ups",
   "name": "Geekworm UPS HAT (X728 / X1200)",
+  "categories": [
+    "energy.backup_power",
+    "diy_makers.boards_hardware"
+  ],
   "codeowners": [
     "@fir006c"
   ],
